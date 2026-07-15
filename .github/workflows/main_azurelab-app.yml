@@ -52,4 +52,4 @@ jobs:
           app-name: 'azurelab-app'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_978B4AD2459D454D9D6329A81805930F }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_81940A57142045E5AF99CC9635D3F838 }}
