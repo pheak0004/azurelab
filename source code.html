@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="km" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Dashboard — Pheak Project</title>
+  <meta name="description" content="A modern single-page dashboard with real-time time, location, weather, internet speed, and system resource widgets." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Kantumruy Pro', 'Inter', 'sans-serif'] },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
+            'spin-slow': 'spin 3s linear infinite',
+            'fade-in': 'fadeIn 0.5s ease-in-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <style>
+    /* Glassmorphism base styles */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 0 40px rgba(99, 102, 241, 0.12), 0 20px 60px rgba(0, 0, 0, 0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Animated gradient background */
+    .gradient-bg {
+      background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.12) 0%, transparent 50%),
+                  radial-gradient(ellipse at 60% 80%, rgba(59,130,246,0.10) 0%, transparent 50%),
+                  linear-gradient(135deg, #0a0b1a 0%, #0d1117 50%, #0a0f1e 100%);
+    }
+
+    /* Circular gauge */
+    .gauge-circle {
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.8s infinite;
+      border-radius: 6px;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 3px; }
+
+    /* Particle dots in background */
+    .particle {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: float var(--duration, 8s) ease-in-out infinite var(--delay, 0s);
+      opacity: var(--opacity, 0.3);
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      33% { transform: translateY(-20px) translateX(10px); }
+      66% { transform: translateY(10px) translateX(-10px); }
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen font-sans text-white antialiased">
+
+  <!-- Ambient particles -->
+  <div aria-hidden="true" id="particles-container" class="fixed inset-0 overflow-hidden pointer-events-none z-0"></div>
+
+  <!-- ============================================================ -->
+  <!-- HEADER -->
+  <!-- ============================================================ -->
+  <header class="relative z-10 px-6 py-5 flex items-center justify-between border-b border-white/5">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+          Smart Dashboard
+        </h1>
+        <p class="text-xs text-white/30 leading-none mt-0.5" data-i18n="subtitle">Real-time system overview</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- Language Toggle Button -->
+      <button id="lang-toggle-btn" onclick="toggleLang()"
+        title="Switch Language / ប្តូរភាសា"
+        class="flex items-center gap-1.5 text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full px-3 py-1 transition-all duration-200 text-white/60 hover:text-white/90">
+        <i data-lucide="languages" class="w-3.5 h-3.5"></i>
+        <span id="lang-toggle-label">EN</span>
+      </button>
+      <div id="connection-badge" class="flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full px-3 py-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span data-i18n="live">Live</span>
+      </div>
+      <div class="text-xs text-white/30" id="header-clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- MAIN GRID -->
+  <!-- ============================================================ -->
+  <main class="relative z-10 px-4 py-6 max-w-7xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+      <!-- ======================================================== -->
+      <!-- WIDGET 1: TIME & DATE -->
+      <!-- ======================================================== -->
+      <div id="widget-time" class="glass-card rounded-2xl p-6 flex flex-col animate-slide-up">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+              <i data-lucide="clock" class="w-4 h-4 text-indigo-400"></i>
+            </div>
+            <span class="text-sm font-semibold text-white/80" data-i18n="w_time">ម៉ោង &amp; កាលបរិច្ឆេទ</span>
+          </div>
+          <span id="timezone-badge" class="text-xs text-white/30 bg-white/5 rounded-full px-2.5 py-1 border border-white/5">UTC</span>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center justify-center text-center py-4">
+          <div id="clock-display"
+            class="font-black text-6xl md:text-7xl tracking-tight bg-gradient-to-br from-white via-indigo-200 to-violet-400 bg-clip-text text-transparent leading-none mb-2 tabular-nums">
+            --:--:--
+          </div>
+          <div id="ampm-display" class="text-sm font-medium text-indigo-300/70 mb-4">--</div>
+          <div id="date-display" class="text-base font-medium text-white/60">-- --- ----</div>
+          <div id="day-display" class="text-sm text-white/30 mt-1">---</div>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/30">
+          <span id="tz-name" data-i18n-id="tz-name">Loading timezone...</span>
+          <span id="tz-offset"></span>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- WIDGET 2: LOCATION -->
+      <!-- ======================================================== -->
+      <div id="widget-location" class="glass-card rounded-2xl p-6 flex flex-col animate-slide-up">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+              <i data-lucide="map-pin" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <span class="text-sm font-semibold text-white/80" data-i18n="w_location">ទីតាំង</span>
+          </div>
+          <button id="location-retry-btn" onclick="initLocation()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-full px-2.5 py-1 transition-all">
+            <span data-i18n="retry">Retry</span>
+          </button>
+        </div>
+
+        <div id="location-content" class="flex-1 flex flex-col justify-center">
+          <div id="loc-requesting" class="text-center py-4">
+            <div class="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3 animate-pulse">
+              <i data-lucide="map-pin" class="w-7 h-7 text-emerald-400"></i>
+            </div>
+            <p class="text-sm text-white/50" data-i18n="loc_requesting">Requesting location access...</p>
+          </div>
+
+          <div id="loc-data" class="hidden space-y-4">
+            <div class="text-center">
+              <p id="loc-city" class="text-2xl font-bold text-white"></p>
+              <p id="loc-country" class="text-sm text-white/40 mt-0.5"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <p class="text-xs text-white/30 mb-1" data-i18n="latitude">Latitude</p>
+                <p id="loc-lat" class="text-sm font-mono font-medium text-emerald-300"></p>
+              </div>
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <p class="text-xs text-white/30 mb-1" data-i18n="longitude">Longitude</p>
+                <p id="loc-lon" class="text-sm font-mono font-medium text-emerald-300"></p>
+              </div>
+            </div>
+            <div class="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+              <iframe id="map-iframe" src="" class="w-full h-36 border-0 opacity-80" title="Location Map"></iframe>
+            </div>
+          </div>
+
+          <div id="loc-error" class="hidden text-center py-4">
+            <div class="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="map-pin-off" class="w-7 h-7 text-red-400"></i>
+            </div>
+            <p class="text-sm text-white/50" data-i18n="loc_denied">Location access denied</p>
+            <p id="loc-error-msg" class="text-xs text-red-400/70 mt-1"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- WIDGET 3: WEATHER -->
+      <!-- ======================================================== -->
+      <div id="widget-weather" class="glass-card rounded-2xl p-6 flex flex-col animate-slide-up">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center border border-sky-500/30">
+              <i data-lucide="cloud-sun" class="w-4 h-4 text-sky-400"></i>
+            </div>
+            <span class="text-sm font-semibold text-white/80" data-i18n="w_weather">អាកាសធាតុ</span>
+          </div>
+          <button onclick="fetchWeather()" class="text-xs text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-full px-2.5 py-1 transition-all">
+            <span data-i18n="refresh">Refresh</span>
+          </button>
+        </div>
+
+        <div id="weather-content" class="flex-1 flex flex-col justify-center">
+          <div id="weather-loading" class="space-y-4">
+            <div class="flex items-center gap-4">
+              <div class="skeleton w-16 h-16 rounded-2xl"></div>
+              <div class="flex-1 space-y-2">
+                <div class="skeleton h-8 w-3/4 rounded"></div>
+                <div class="skeleton h-4 w-1/2 rounded"></div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="skeleton h-16 rounded-xl"></div>
+              <div class="skeleton h-16 rounded-xl"></div>
+            </div>
+          </div>
+
+          <div id="weather-data" class="hidden space-y-4">
+            <div class="flex items-center gap-4">
+              <div id="weather-icon-wrap" class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-4xl flex-shrink-0">
+                🌤️
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span id="weather-temp" class="text-4xl font-black text-white">--</span>
+                  <span class="text-lg font-medium text-white/40">°C</span>
+                </div>
+                <p id="weather-condition" class="text-sm text-white/50 mt-0.5">--</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <i data-lucide="droplets" class="w-3 h-3 text-blue-400"></i>
+                  <span class="text-xs text-white/30" data-i18n="humidity">Humidity</span>
+                </div>
+                <p id="weather-humidity" class="text-lg font-bold text-blue-300">--%</p>
+              </div>
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <i data-lucide="wind" class="w-3 h-3 text-teal-400"></i>
+                  <span class="text-xs text-white/30" data-i18n="wind">Wind</span>
+                </div>
+                <p id="weather-wind" class="text-lg font-bold text-teal-300">-- km/h</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <i data-lucide="thermometer" class="w-3 h-3 text-orange-400"></i>
+                  <span class="text-xs text-white/30" data-i18n="feels_like">Feels Like</span>
+                </div>
+                <p id="weather-feels" class="text-lg font-bold text-orange-300">--°C</p>
+              </div>
+              <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <i data-lucide="eye" class="w-3 h-3 text-purple-400"></i>
+                  <span class="text-xs text-white/30" data-i18n="visibility">Visibility</span>
+                </div>
+                <p id="weather-vis" class="text-lg font-bold text-purple-300">-- km</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="weather-error" class="hidden text-center py-4">
+            <div class="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="cloud-off" class="w-7 h-7 text-red-400"></i>
+            </div>
+            <p class="text-sm text-white/50" data-i18n="weather_err">Could not load weather</p>
+            <p id="weather-error-msg" class="text-xs text-red-400/70 mt-1"></p>
+            <button onclick="fetchWeather()" class="mt-3 text-xs text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-full px-3 py-1.5 transition-all">
+              <span data-i18n="try_again">Try Again</span>
+            </button>
+          </div>
+
+          <div id="weather-waiting" class="hidden text-center py-6">
+            <p class="text-sm text-white/30" data-i18n="weather_wait">Waiting for location data...</p>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-white/5 text-xs text-white/20 flex justify-between">
+          <span data-i18n="source">Source: Open-Meteo API</span>
+          <span id="weather-updated">--</span>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- WIDGET 4: INTERNET SPEED -->
+      <!-- ======================================================== -->
+      <div id="widget-speed" class="glass-card rounded-2xl p-6 flex flex-col animate-slide-up">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+              <i data-lucide="gauge" class="w-4 h-4 text-violet-400"></i>
+            </div>
+            <span class="text-sm font-semibold text-white/80" data-i18n="w_speed">ល្បឿន Internet</span>
+          </div>
+          <span id="speed-status-badge" class="text-xs text-white/20 bg-white/5 rounded-full px-2.5 py-1 border border-white/5">Idle</span>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center justify-center">
+          <!-- SVG Speedometer -->
+          <div class="relative w-48 h-28">
+            <svg viewBox="0 0 200 110" class="w-full h-full">
+              <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14" stroke-linecap="round"/>
+              <path d="M 10 100 A 90 90 0 0 1 60 18" fill="none" stroke="rgba(52,211,153,0.3)" stroke-width="14" stroke-linecap="round"/>
+              <path d="M 60 18 A 90 90 0 0 1 140 18" fill="none" stroke="rgba(251,191,36,0.3)" stroke-width="14" stroke-linecap="round"/>
+              <path d="M 140 18 A 90 90 0 0 1 190 100" fill="none" stroke="rgba(239,68,68,0.3)" stroke-width="14" stroke-linecap="round"/>
+              <defs>
+                <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#34d399"/>
+                  <stop offset="50%" stop-color="#a78bfa"/>
+                  <stop offset="100%" stop-color="#f87171"/>
+                </linearGradient>
+              </defs>
+              <circle cx="100" cy="100" r="5" fill="rgba(255,255,255,0.3)"/>
+              <line id="speed-needle" x1="100" y1="100" x2="100" y2="18"
+                stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.9"
+                style="transform-origin: 100px 100px; transform: rotate(-90deg); transition: transform 1s cubic-bezier(0.4,0,0.2,1)"/>
+              <text x="4" y="113" fill="rgba(255,255,255,0.2)" font-size="8" font-family="monospace">0</text>
+              <text x="85" y="12" fill="rgba(255,255,255,0.2)" font-size="8" font-family="monospace">50</text>
+              <text x="178" y="113" fill="rgba(255,255,255,0.2)" font-size="8" font-family="monospace">100+</text>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-end pb-1">
+              <div id="speed-value" class="text-3xl font-black tabular-nums bg-gradient-to-br from-white to-violet-300 bg-clip-text text-transparent">--</div>
+              <div class="text-xs text-white/30 font-medium">Mbps</div>
+            </div>
+          </div>
+
+          <div class="w-full mt-4">
+            <div class="flex justify-between text-xs text-white/30 mb-1.5">
+              <span data-i18n="download_speed">Download Speed</span>
+              <span id="speed-bar-label">-- Mbps</span>
+            </div>
+            <div class="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+              <div id="speed-bar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-violet-500 to-red-500 transition-all duration-1000" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div id="speed-loading" class="hidden w-full mt-4">
+            <div class="flex items-center gap-2 text-xs text-violet-400 mb-2">
+              <div class="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+              <span id="speed-loading-text">Initializing test...</span>
+            </div>
+            <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div id="speed-progress" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-300" style="width:0%"></div>
+            </div>
+          </div>
+
+          <button id="speed-test-btn" onclick="runSpeedTest()"
+            class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-sm transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/25 active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="zap" class="w-4 h-4"></i>
+            <span data-i18n="test_speed">Test Speed</span>
+          </button>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-white/5 text-xs text-white/20 flex justify-between">
+          <span data-i18n="method">Method: File fetch benchmark</span>
+          <span id="speed-last-test" data-i18n="not_tested">Not tested yet</span>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- WIDGET 5: SYSTEM RESOURCES (spans 2 columns on lg) -->
+      <!-- ======================================================== -->
+      <div id="widget-system" class="glass-card rounded-2xl p-6 flex flex-col md:col-span-2 animate-slide-up">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
+              <i data-lucide="cpu" class="w-4 h-4 text-rose-400"></i>
+            </div>
+            <span class="text-sm font-semibold text-white/80" data-i18n="w_system">System Resources</span>
+          </div>
+          <button onclick="updateSystemStats()" class="text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-full px-2.5 py-1 transition-all">
+            <span data-i18n="refresh">Refresh</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+
+          <!-- CPU Cores -->
+          <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="cpu" class="w-4 h-4 text-rose-400"></i>
+                <span class="text-xs font-semibold text-white/70" data-i18n="cpu_cores">CPU Cores</span>
+              </div>
+              <span id="cpu-badge" class="text-xs font-mono bg-rose-500/10 text-rose-300 border border-rose-500/20 rounded-full px-2 py-0.5">--</span>
+            </div>
+            <div id="cpu-cores-viz" class="grid grid-cols-8 gap-1 mb-2"></div>
+            <p id="cpu-info" class="text-xs text-white/30">Loading CPU info...</p>
+          </div>
+
+          <!-- JS Heap Memory -->
+          <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="hard-drive" class="w-4 h-4 text-amber-400"></i>
+                <span class="text-xs font-semibold text-white/70" data-i18n="js_heap">JS Heap Memory</span>
+              </div>
+              <span id="mem-percent" class="text-xs font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-full px-2 py-0.5">--%</span>
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <svg width="56" height="56" viewBox="0 0 64 64" class="flex-shrink-0">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+                <circle id="mem-gauge" cx="32" cy="32" r="26" fill="none" stroke="#f59e0b" stroke-width="6"
+                  stroke-linecap="round" class="gauge-circle"
+                  stroke-dasharray="163.4" stroke-dashoffset="163.4"
+                  style="transition: stroke-dashoffset 1s ease;"/>
+              </svg>
+              <div>
+                <p id="mem-used" class="text-lg font-bold text-amber-300">-- MB</p>
+                <p id="mem-total" class="text-xs text-white/30">of -- MB</p>
+                <p id="mem-fallback" class="text-xs text-white/20 hidden">Use Chrome for memory data</p>
+              </div>
+            </div>
+            <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div id="mem-bar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-1000" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Battery -->
+          <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="battery" class="w-4 h-4 text-green-400"></i>
+                <span class="text-xs font-semibold text-white/70" data-i18n="battery">Battery</span>
+              </div>
+              <span id="battery-badge" class="text-xs font-mono bg-green-500/10 text-green-300 border border-green-500/20 rounded-full px-2 py-0.5">--%</span>
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="relative flex-shrink-0">
+                <div class="w-14 h-7 border-2 border-white/20 rounded-md overflow-hidden">
+                  <div id="battery-fill" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-sm transition-all duration-1000" style="width:0%">
+                    <div id="battery-charging-icon" class="hidden h-full flex items-center justify-center">
+                      <i data-lucide="zap" class="w-3 h-3 text-white"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-1 h-3 bg-white/20 rounded-r-sm"></div>
+              </div>
+              <div>
+                <p id="battery-level" class="text-lg font-bold text-green-300">--%</p>
+                <p id="battery-status" class="text-xs text-white/30">--</p>
+                <p id="battery-time" class="text-xs text-white/20 mt-0.5"></p>
+              </div>
+            </div>
+            <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div id="battery-bar" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-1000" style="width:0%"></div>
+            </div>
+            <p id="battery-fallback" class="hidden text-xs text-white/20 mt-2">Battery API not supported in this browser</p>
+          </div>
+
+          <!-- Environment info (spans full width) -->
+          <div class="bg-white/5 rounded-xl p-4 border border-white/5 sm:col-span-2 xl:col-span-3">
+            <div class="flex items-center gap-2 mb-3">
+              <i data-lucide="monitor" class="w-4 h-4 text-indigo-400"></i>
+              <span class="text-xs font-semibold text-white/70" data-i18n="env_info">Environment Info</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="platform">Platform</p>
+                <p id="sys-platform" class="text-sm font-medium text-indigo-300 truncate">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="browser">Browser</p>
+                <p id="sys-browser" class="text-sm font-medium text-indigo-300 truncate">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="screen">Screen</p>
+                <p id="sys-screen" class="text-sm font-medium text-indigo-300">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="color_depth">Color Depth</p>
+                <p id="sys-color" class="text-sm font-medium text-indigo-300">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="lang_label">Language</p>
+                <p id="sys-lang" class="text-sm font-medium text-indigo-300">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="timezone">Timezone</p>
+                <p id="sys-tz" class="text-sm font-medium text-indigo-300 truncate">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="online">Online</p>
+                <p id="sys-online" class="text-sm font-medium text-indigo-300">--</p>
+              </div>
+              <div>
+                <p class="text-xs text-white/20 mb-0.5" data-i18n="connection">Connection</p>
+                <p id="sys-connection" class="text-sm font-medium text-indigo-300 truncate">--</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- end grid -->
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- FOOTER -->
+  <!-- ============================================================ -->
+  <footer class="relative z-10 px-6 py-4 mt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-xs text-white/20">Smart Dashboard &copy; <span id="footer-year">2026</span> — Pheak Project</p>
+    <div class="flex items-center gap-4 text-xs text-white/20">
+      <span data-i18n="footer_note">No data sent to external servers (except APIs)</span>
+      <span>Vanilla JS + Tailwind CSS</span>
+    </div>
+  </footer>
+
+  <!-- ============================================================ -->
+  <!-- JAVASCRIPT -->
+  <!-- ============================================================ -->
+  <script>
+    'use strict';
+
+    // =====================================================
+    // LANGUAGE / I18N
+    // =====================================================
+
+    let currentLang = 'km'; // default: Khmer
+
+    const LANG = {
+      km: {
+        subtitle       : 'ទិដ្ឋភាពប្រព័ន្ធពេលវេលាជាក់ស្តែង',
+        live           : 'ផ្សាយផ្ទាល់',
+        w_time         : 'ម៉ោង & កាលបរិច្ឆេទ',
+        w_location     : 'ទីតាំង',
+        w_weather      : 'អាកាសធាតុ',
+        w_speed        : 'ល្បឿន Internet',
+        w_system       : 'ធនធានប្រព័ន្ធ',
+        retry          : 'សាកម្តងទៀត',
+        refresh        : 'ធ្វើបច្ចុប្បន្នភាព',
+        loc_requesting : 'កំពុងស្នើសុំទីតាំង...',
+        latitude       : 'រយៈទទឹង',
+        longitude      : 'រយៈបណ្តោយ',
+        loc_denied     : 'ការចូលប្រើទីតាំងត្រូវបានបដិសេធ',
+        humidity       : 'សំណើម',
+        wind           : 'ខ្យល់',
+        feels_like     : 'អារម្មណ៍សីតុណ្ហភាព',
+        visibility     : 'ភាពច្បាស់',
+        weather_err    : 'មិនអាចទាញអាកាសធាតុបានទេ',
+        try_again      : 'ព្យាយាមម្តងទៀត',
+        weather_wait   : 'រង់ចាំទិន្នន័យទីតាំង...',
+        source         : 'ប្រភព: Open-Meteo API',
+        download_speed : 'ល្បឿន Download',
+        test_speed     : 'ធ្វើតេស្ត',
+        method         : 'វិធីសាស្ត្រ: File fetch',
+        not_tested     : 'មិនទាន់ធ្វើតេស្តទេ',
+        cpu_cores      : 'ចំនួន CPU Core',
+        js_heap        : 'ការស្ទាក់ JS Heap',
+        battery        : 'ថ្ម',
+        env_info       : 'ព័ត៌មានបរិស្ថាន',
+        platform       : 'វេទិកា',
+        browser        : 'កម្មវិធីរុករក',
+        screen         : 'អេក្រង់',
+        color_depth    : 'ជម្រៅពណ៌',
+        lang_label     : 'ភាសា',
+        timezone       : 'តំបន់ពេលវេលា',
+        online         : 'ស្ថានភាពបណ្តាញ',
+        connection     : 'ប្រភេទការតភ្ជាប់',
+        footer_note    : 'មិនមានទិន្នន័យផ្ញើទៅម៉ាស៊ីន (លើកលែង API)',
+      },
+      en: {
+        subtitle       : 'Real-time system overview',
+        live           : 'Live',
+        w_time         : 'Time & Date',
+        w_location     : 'Location',
+        w_weather      : 'Weather',
+        w_speed        : 'Internet Speed',
+        w_system       : 'System Resources',
+        retry          : 'Retry',
+        refresh        : 'Refresh',
+        loc_requesting : 'Requesting location access...',
+        latitude       : 'Latitude',
+        longitude      : 'Longitude',
+        loc_denied     : 'Location access denied',
+        humidity       : 'Humidity',
+        wind           : 'Wind',
+        feels_like     : 'Feels Like',
+        visibility     : 'Visibility',
+        weather_err    : 'Could not load weather',
+        try_again      : 'Try Again',
+        weather_wait   : 'Waiting for location data...',
+        source         : 'Source: Open-Meteo API',
+        download_speed : 'Download Speed',
+        test_speed     : 'Test Speed',
+        method         : 'Method: File fetch benchmark',
+        not_tested     : 'Not tested yet',
+        cpu_cores      : 'CPU Cores',
+        js_heap        : 'JS Heap Memory',
+        battery        : 'Battery',
+        env_info       : 'Environment Info',
+        platform       : 'Platform',
+        browser        : 'Browser',
+        screen         : 'Screen',
+        color_depth    : 'Color Depth',
+        lang_label     : 'Language',
+        timezone       : 'Timezone',
+        online         : 'Online',
+        connection     : 'Connection',
+        footer_note    : 'No data sent to external servers (except APIs)',
+      },
+    };
+
+    /** Apply the active language to every [data-i18n] element */
+    function applyLang() {
+      const dict = LANG[currentLang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (dict[key] !== undefined) el.textContent = dict[key];
+      });
+      // Update toggle button label to show the OTHER language (what you'd switch to)
+      $('lang-toggle-label').textContent = currentLang === 'km' ? 'EN' : 'ខ្មែរ';
+      // Update <html lang> attribute
+      document.documentElement.lang = currentLang === 'km' ? 'km' : 'en';
+    }
+
+    /** Toggle between Khmer and English */
+    function toggleLang() {
+      currentLang = currentLang === 'km' ? 'en' : 'km';
+      applyLang();
+      // Re-render clock immediately so day/month names update
+      updateClock();
+    }
+
+    // =====================================================
+    // GLOBAL STATE
+    // =====================================================
+    const state = {
+      lat: null,
+      lon: null,
+      locationReady: false,
+      speedTesting: false,
+    };
+
+    // =====================================================
+    // UTILITY HELPERS
+    // =====================================================
+    const $ = (id) => document.getElementById(id);
+    const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    const showEl = (...ids) => ids.forEach(id => { const el = $(id); if (el) el.classList.remove('hidden'); });
+    const hideEl = (...ids) => ids.forEach(id => { const el = $(id); if (el) el.classList.add('hidden'); });
+    const padTwo = (n) => String(n).padStart(2, '0');
+    const toMB = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
+
+    function detectBrowser() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Edg/')) return 'Microsoft Edge';
+      if (ua.includes('OPR/') || ua.includes('Opera')) return 'Opera';
+      if (ua.includes('Chrome/')) return 'Google Chrome';
+      if (ua.includes('Firefox/')) return 'Firefox';
+      if (ua.includes('Safari/') && !ua.includes('Chrome')) return 'Safari';
+      return 'Unknown Browser';
+    }
+
+    // =====================================================
+    // AMBIENT PARTICLES
+    // =====================================================
+    function createParticles() {
+      const container = $('particles-container');
+      if (!container) return;
+      const colors = [
+        'rgba(99,102,241,0.4)', 'rgba(139,92,246,0.35)',
+        'rgba(59,130,246,0.3)', 'rgba(16,185,129,0.25)'
+      ];
+      for (let i = 0; i < 18; i++) {
+        const p = document.createElement('div');
+        const size = Math.random() * 5 + 2;
+        p.className = 'particle';
+        p.style.cssText = `
+          width:${size}px; height:${size}px;
+          left:${Math.random()*100}%;
+          top:${Math.random()*100}%;
+          background:${colors[Math.floor(Math.random()*colors.length)]};
+          --duration:${Math.random()*8+6}s;
+          --delay:-${Math.random()*8}s;
+          --opacity:${Math.random()*0.4+0.1};
+        `;
+        container.appendChild(p);
+      }
+    }
+
+    // =====================================================
+    // WIDGET 1: TIME & DATE
+    // =====================================================
+    const KH_DAYS   = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    const KH_MONTHS = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា',
+                       'កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+    const EN_DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const EN_MONTHS = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+
+    function updateClock() {
+      const now   = new Date();
+      const h     = now.getHours();
+      const m     = now.getMinutes();
+      const s     = now.getSeconds();
+      const ampm  = h >= 12 ? 'PM' : 'AM';
+      const h12   = h % 12 || 12;
+
+      const timeStr = `${padTwo(h12)}:${padTwo(m)}:${padTwo(s)}`;
+      setText('clock-display', timeStr);
+      setText('ampm-display', ampm);
+      setText('header-clock', `${timeStr} ${ampm}`);
+
+      if (currentLang === 'km') {
+        setText('date-display', `${padTwo(now.getDate())} ${KH_MONTHS[now.getMonth()]} ${now.getFullYear()}`);
+        setText('day-display',  'ថ្ងៃ' + KH_DAYS[now.getDay()]);
+      } else {
+        setText('date-display', `${EN_DAYS[now.getDay()]}, ${EN_MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`);
+        setText('day-display',  '');
+      }
+    }
+
+    function initTimezone() {
+      try {
+        const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const offset = new Date().getTimezoneOffset();
+        const sign   = offset <= 0 ? '+' : '-';
+        const abs    = Math.abs(offset);
+        const oh     = padTwo(Math.floor(abs / 60));
+        const om     = padTwo(abs % 60);
+        const label  = `UTC${sign}${oh}:${om}`;
+        setText('timezone-badge', label);
+        setText('tz-name', tz);
+        setText('tz-offset', label);
+        setText('sys-tz', tz);
+      } catch {
+        setText('tz-name', 'Unknown timezone');
+      }
+    }
+
+    function initClock() {
+      updateClock();
+      setInterval(updateClock, 1000);
+      initTimezone();
+    }
+
+    // =====================================================
+    // WIDGET 2: LOCATION  (static data)
+    // =====================================================
+
+    // ── Static location preset ────────────────────────────
+    const STATIC_LOCATION = {
+      lat     : 11.568271,
+      lon     : 104.921532,
+      city    : 'Phnom Penh',
+      state   : 'Phnom Penh',
+      country : 'Cambodia',
+    };
+
+    function setLocationState(s) {
+      hideEl('loc-requesting', 'loc-data', 'loc-error');
+      showEl('loc-' + s);
+    }
+
+    function initLocation() {
+      // Populate state from static preset
+      state.lat          = STATIC_LOCATION.lat;
+      state.lon          = STATIC_LOCATION.lon;
+      state.locationReady = true;
+
+      // Update DOM
+      setText('loc-lat',     state.lat.toFixed(6) + '°');
+      setText('loc-lon',     state.lon.toFixed(6) + '°');
+      setText('loc-city',    STATIC_LOCATION.city);
+      setText('loc-country', [STATIC_LOCATION.state, STATIC_LOCATION.country].join(', '));
+
+      // Mini map embed (OpenStreetMap — no API key needed)
+      $('map-iframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${state.lon-0.05},${state.lat-0.05},${state.lon+0.05},${state.lat+0.05}&layer=mapnik&marker=${state.lat},${state.lon}`;
+
+      setLocationState('data');
+      fetchWeather();
+    }
+
+    // =====================================================
+    // WIDGET 3: WEATHER
+    // =====================================================
+    const WMO_CODES = {
+      0:['☀️','Clear sky'], 1:['🌤️','Mainly clear'], 2:['⛅','Partly cloudy'], 3:['☁️','Overcast'],
+      45:['🌫️','Foggy'], 48:['🌫️','Icy fog'],
+      51:['🌦️','Light drizzle'], 53:['🌦️','Moderate drizzle'], 55:['🌧️','Dense drizzle'],
+      61:['🌧️','Slight rain'], 63:['🌧️','Moderate rain'], 65:['🌧️','Heavy rain'],
+      71:['🌨️','Slight snow'], 73:['🌨️','Moderate snow'], 75:['❄️','Heavy snow'],
+      80:['🌦️','Slight showers'], 81:['🌧️','Moderate showers'], 82:['⛈️','Violent showers'],
+      95:['⛈️','Thunderstorm'], 96:['⛈️','Thunderstorm w/ hail'], 99:['⛈️','Heavy thunderstorm'],
+    };
+
+    function showWeatherWaiting() {
+      hideEl('weather-loading', 'weather-data', 'weather-error');
+      showEl('weather-waiting');
+    }
+
+    // ── Static weather preset (Phnom Penh, Cambodia) ──────
+    const STATIC_WEATHER = {
+      temperature_2m       : 33,    // °C
+      apparent_temperature : 38,    // °C  (feels like)
+      relative_humidity_2m : 72,    // %
+      wind_speed_10m       : 14,    // km/h
+      visibility           : 9000,  // metres
+      weather_code         : 2,     // Partly cloudy
+    };
+
+    function fetchWeather() {
+      if (!state.locationReady) { showWeatherWaiting(); return; }
+      hideEl('weather-data', 'weather-error', 'weather-waiting');
+      showEl('weather-loading');
+
+      // Simulate a brief loading delay for realism
+      setTimeout(() => {
+        const c   = STATIC_WEATHER;
+        const wmo = WMO_CODES[c.weather_code] || ['🌡️', 'Unknown'];
+
+        $('weather-icon-wrap').textContent = wmo[0];
+        setText('weather-temp',      c.temperature_2m);
+        setText('weather-condition', wmo[1]);
+        setText('weather-humidity',  `${c.relative_humidity_2m}%`);
+        setText('weather-wind',      `${c.wind_speed_10m} km/h`);
+        setText('weather-feels',     `${c.apparent_temperature}°C`);
+        setText('weather-vis',       `${(c.visibility / 1000).toFixed(1)} km`);
+
+        const now = new Date();
+        setText('weather-updated', `Static data — ${padTwo(now.getHours())}:${padTwo(now.getMinutes())}`);
+
+        hideEl('weather-loading', 'weather-error', 'weather-waiting');
+        showEl('weather-data');
+      }, 600);
+    }
+
+    // =====================================================
+    // WIDGET 4: INTERNET SPEED TEST
+    // =====================================================
+    const SPEED_TEST_URLS  = [
+      'https://speed.cloudflare.com/__down?bytes=5000000',
+      'https://httpbin.org/bytes/3000000',
+    ];
+
+    function setSpeedMeter(mbps) {
+      const maxMbps    = 100;
+      const pct        = Math.min(mbps / maxMbps, 1);
+      const needleDeg  = -90 + pct * 180;
+      $('speed-needle').style.transform = `rotate(${needleDeg}deg)`;
+      $('speed-bar').style.width        = Math.min(pct * 100, 100) + '%';
+      setText('speed-bar-label', mbps >= 0.01 ? mbps.toFixed(2) + ' Mbps' : '-- Mbps');
+      setText('speed-value',     mbps >= 0.01 ? (mbps >= 1 ? mbps.toFixed(1) : mbps.toFixed(2)) : '--');
+    }
+
+    async function runSpeedTest() {
+      if (state.speedTesting) return;
+      state.speedTesting = true;
+
+      const btn = $('speed-test-btn');
+      btn.disabled  = true;
+      btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Testing...`;
+
+      setText('speed-status-badge', 'Testing…');
+      $('speed-status-badge').className = 'text-xs text-violet-400 bg-violet-500/10 rounded-full px-2.5 py-1 border border-violet-500/20';
+
+      showEl('speed-loading');
+      $('speed-progress').style.width = '0%';
+      setText('speed-loading-text', 'Connecting to test server...');
+
+      let progressVal = 0;
+      const progInt = setInterval(() => {
+        progressVal = Math.min(progressVal + Math.random() * 9, 85);
+        $('speed-progress').style.width = progressVal + '%';
+      }, 200);
+
+      let resultMbps = null;
+
+      for (const url of SPEED_TEST_URLS) {
+        try {
+          setText('speed-loading-text', 'Downloading benchmark file...');
+          const controller = new AbortController();
+          const tOut = setTimeout(() => controller.abort(), 18000);
+          const start = performance.now();
+          const res   = await fetch(url + `&_=${Date.now()}`, { signal: controller.signal, cache: 'no-store' });
+          clearTimeout(tOut);
+          if (!res.ok) continue;
+          const blob  = await res.blob();
+          const dSec  = (performance.now() - start) / 1000;
+          const bytes = blob.size || 5_000_000;
+          resultMbps  = (bytes * 8) / dSec / 1_000_000;
+          break;
+        } catch { continue; }
+      }
+
+      clearInterval(progInt);
+      $('speed-progress').style.width = '100%';
+      await new Promise(r => setTimeout(r, 400));
+      hideEl('speed-loading');
+
+      if (resultMbps !== null && isFinite(resultMbps) && resultMbps > 0) {
+        setSpeedMeter(resultMbps);
+        let bc = 'emerald', bt = 'Excellent';
+        if      (resultMbps < 5)  { bc = 'red';    bt = 'Slow';      }
+        else if (resultMbps < 20) { bc = 'amber';  bt = 'Average';   }
+        else if (resultMbps < 50) { bc = 'sky';    bt = 'Good';      }
+        $('speed-status-badge').textContent  = bt;
+        $('speed-status-badge').className = `text-xs text-${bc}-400 bg-${bc}-500/10 rounded-full px-2.5 py-1 border border-${bc}-500/20`;
+      } else {
+        setText('speed-value', 'Err');
+        setText('speed-status-badge', 'Failed');
+        $('speed-status-badge').className = 'text-xs text-red-400 bg-red-500/10 rounded-full px-2.5 py-1 border border-red-500/20';
+      }
+
+      const now = new Date();
+      setText('speed-last-test', `Tested ${padTwo(now.getHours())}:${padTwo(now.getMinutes())}:${padTwo(now.getSeconds())}`);
+      btn.disabled  = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Test Again`;
+      state.speedTesting = false;
+    }
+
+    // =====================================================
+    // WIDGET 5: SYSTEM RESOURCES
+    // =====================================================
+    function updateCPUInfo() {
+      const cores = navigator.hardwareConcurrency || null;
+      if (cores) {
+        setText('cpu-badge', `${cores} cores`);
+        setText('cpu-info',  `${cores} logical processor${cores > 1 ? 's' : ''} detected`);
+        const viz = $('cpu-cores-viz');
+        viz.innerHTML = '';
+        for (let i = 0; i < Math.min(cores, 32); i++) {
+          const dot = document.createElement('div');
+          dot.className = 'w-4 h-4 rounded-sm bg-rose-500/50 border border-rose-500/30 animate-pulse';
+          dot.style.animationDelay = `${(i * 0.12) % 2.5}s`;
+          viz.appendChild(dot);
+        }
+      } else {
+        setText('cpu-badge', 'N/A');
+        setText('cpu-info',  'CPU info unavailable in this browser');
+      }
+    }
+
+    function updateMemoryInfo() {
+      const mem = performance.memory;
+      if (mem) {
+        const used  = mem.usedJSHeapSize;
+        const total = mem.jsHeapSizeLimit;
+        const pct   = Math.round((used / total) * 100);
+        setText('mem-used',    toMB(used)  + ' MB');
+        setText('mem-total',   'of ' + toMB(total) + ' MB');
+        setText('mem-percent', pct + '%');
+        $('mem-bar').style.width = pct + '%';
+        const circ   = 163.36;
+        const offset = circ - (pct / 100) * circ;
+        const gauge  = $('mem-gauge');
+        gauge.style.strokeDashoffset = offset;
+        gauge.style.stroke           = pct > 80 ? '#ef4444' : '#f59e0b';
+      } else {
+        setText('mem-percent', 'N/A');
+        setText('mem-used',    '');
+        setText('mem-total',   '');
+        showEl('mem-fallback');
+      }
+    }
+
+    async function updateBatteryInfo() {
+      if (!('getBattery' in navigator)) {
+        showEl('battery-fallback');
+        setText('battery-status', 'Not supported');
+        setText('battery-badge',  'N/A');
+        return;
+      }
+      try {
+        const batt    = await navigator.getBattery();
+        const pct     = Math.round(batt.level * 100);
+        const charging = batt.charging;
+
+        setText('battery-badge',  pct + '%');
+        setText('battery-level',  pct + '%');
+        setText('battery-status', charging ? '⚡ Charging' : 'On battery');
+
+        const fillEl = $('battery-fill');
+        const barEl  = $('battery-bar');
+        fillEl.style.width = pct + '%';
+        barEl.style.width  = pct + '%';
+
+        const colorClass = pct > 50
+          ? 'from-green-500 to-emerald-400'
+          : pct > 20
+            ? 'from-amber-500 to-yellow-400'
+            : 'from-red-500 to-orange-400';
+        fillEl.className = `h-full bg-gradient-to-r ${colorClass} rounded-sm transition-all duration-1000`;
+        barEl.className  = `h-full bg-gradient-to-r ${colorClass} rounded-full transition-all duration-1000`;
+
+        const chIcon = $('battery-charging-icon');
+        if (charging) chIcon.classList.remove('hidden');
+        else          chIcon.classList.add('hidden');
+
+        let timeText = '';
+        if (!charging && batt.dischargingTime !== Infinity) {
+          const mins = Math.round(batt.dischargingTime / 60);
+          timeText = `~${Math.floor(mins/60)}h ${mins%60}m left`;
+        } else if (charging && batt.chargingTime !== Infinity) {
+          const mins = Math.round(batt.chargingTime / 60);
+          timeText = `~${Math.floor(mins/60)}h ${mins%60}m to full`;
+        }
+        setText('battery-time', timeText);
+
+        batt.addEventListener('levelchange',   updateBatteryInfo);
+        batt.addEventListener('chargingchange', updateBatteryInfo);
+      } catch (e) {
+        showEl('battery-fallback');
+        setText('battery-status', 'Error loading battery');
+      }
+    }
+
+    function updateEnvironmentInfo() {
+      const nav  = navigator;
+      const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
+      setText('sys-platform',   nav.platform || 'Unknown');
+      setText('sys-browser',    detectBrowser());
+      setText('sys-screen',     `${screen.width}×${screen.height}`);
+      setText('sys-color',      `${screen.colorDepth}-bit`);
+      setText('sys-lang',       nav.language || 'Unknown');
+      setText('sys-online',     nav.onLine ? '✅ Online' : '❌ Offline');
+      setText('sys-connection', conn
+        ? `${conn.effectiveType || ''} ${conn.downlink ? conn.downlink + ' Mbps' : ''}`.trim() || 'Unknown'
+        : 'Unknown'
+      );
+    }
+
+    function updateSystemStats() {
+      updateCPUInfo();
+      updateMemoryInfo();
+      updateEnvironmentInfo();
+    }
+
+    // =====================================================
+    // INIT APP
+    // =====================================================
+    function initApp() {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      createParticles();
+      initClock();
+      setText('footer-year', new Date().getFullYear());
+      showWeatherWaiting();
+      initLocation();
+      setSpeedMeter(0);
+      updateSystemStats();
+      updateBatteryInfo();
+
+      // Auto-refresh memory every 3s
+      setInterval(updateMemoryInfo, 3000);
+      // Auto-refresh weather every 5 min
+      setInterval(() => { if (state.locationReady) fetchWeather(); }, 5 * 60 * 1000);
+
+      // Online/offline monitoring
+      window.addEventListener('online', () => {
+        setText('sys-online', '✅ Online');
+        const b = $('connection-badge');
+        b.innerHTML   = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live';
+        b.className   = 'flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full px-3 py-1';
+      });
+      window.addEventListener('offline', () => {
+        setText('sys-online', '❌ Offline');
+        const b = $('connection-badge');
+        b.innerHTML   = '<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span> Offline';
+        b.className   = 'flex items-center gap-1.5 text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded-full px-3 py-1';
+      });
+
+      // Apply default language (Khmer)
+      applyLang();
+
+      // Re-run lucide after dynamic icons might appear
+      setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 800);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+</body>
+</html>
